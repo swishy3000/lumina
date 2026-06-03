@@ -1909,13 +1909,19 @@ function importCSV(input) {
       const splitTags = s => s.split(',').map(t => t.trim()).filter(Boolean);
       const me = parseInt(get('morning_energy', 1)) || parseInt(get('start of day energy', 1)) || 0;
       const ee = parseInt(get('evening_energy', 2)) || parseInt(get('end of day energy',   2)) || 0;
+      const rsRaw = get('readiness_score', -1);
+      const rs = rsRaw !== '' ? parseInt(rsRaw) : null;
+      const condRaw = get('conditions', -1);
+      const conditions = condRaw ? condRaw.split('|').map(v => v === '1') : null;
       entries[date] = {
-        morningEnergy: me,
-        eveningEnergy: ee,
-        givers:        splitTags(get('givers',   3) || get('energy givers',   3)),
-        drainers:      splitTags(get('drainers', 4) || get('energy drainers', 4)),
-        morningSaved:  me > 0,
-        eveningSaved:  ee > 0,
+        morningEnergy:  me,
+        eveningEnergy:  ee,
+        givers:         splitTags(get('givers',   3) || get('energy givers',   3)),
+        drainers:       splitTags(get('drainers', 4) || get('energy drainers', 4)),
+        morningSaved:   me > 0 || rs !== null,
+        eveningSaved:   ee > 0,
+        ...(rs !== null && { readinessScore: rs }),
+        ...(conditions  && { conditions }),
       };
       count++;
     });
