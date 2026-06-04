@@ -2,7 +2,7 @@
   "name": "Lumina — Energy Tracker",
   "short_name": "Lumina",
   "description": "Track your daily energy levels and patterns",
-  "start_url": "/lumina/",
+  "start_url": ".",
   "display": "standalone",
   "background_color": "#0a0d1f",
   "theme_color": "#0a0d1f",
