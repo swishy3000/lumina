@@ -42,43 +42,40 @@
 }
 
 
-html, body {
-  margin: 0;
+html {
+  min-height: 100%;
   background: var(--navy);
+  /* pinned to the viewport (root background does not scroll with the document) */
+  background-image:
+    radial-gradient(ellipse 140% 55% at 50% -2%, rgba(80,85,220,0.55) 0%, rgba(80,85,220,0.18) 35%, transparent 100%),
+    radial-gradient(ellipse 80% 30% at 75% 95%, rgba(99,102,241,0.12) 0%, transparent 60%);
+}
+body {
+  min-height: 100vh;        /* fallback */
+  min-height: 100lvh;       /* fill large viewport; lets content sit behind the toolbar */
+  margin: 0;
+  background: transparent;  /* let html gradient show through */
   color: var(--white);
   font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 15px;
   line-height: 1.5;
 }
+body.sheet-open { overflow: hidden; }
 
 /* ── LAYOUT ──────────────────────────────────────────────── */
 .app {
-  display: flex;
-  flex-direction: column;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 100vh;
-  height: 100dvh;
-  height: 100svh;
+  position: relative;       /* body is the scroller now */
+  min-height: 100vh;        /* fallback */
+  min-height: 100lvh;       /* short pages still fill the screen */
   max-width: 430px;
   margin: 0 auto;
-  background: var(--navy);
-  /* subtle violet gradient mesh over dark background */
-  background-image:
-    radial-gradient(ellipse 140% 55% at 50% -2%, rgba(80,85,220,0.55) 0%, rgba(80,85,220,0.18) 35%, transparent 100%),
-    radial-gradient(ellipse 80% 30% at 75% 95%, rgba(99,102,241,0.12) 0%, transparent 60%);
+  background: transparent;   /* gradient comes from the html root background */
 }
 
 .screen {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-bottom: 96px;
-  min-height: 0;
+  overflow-x: hidden;       /* contain the week-strip swipe transform */
+  padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); /* clear the fixed nav */
 }
-.screen::-webkit-scrollbar { width: 0; }
 
 /* ── HEADER ──────────────────────────────────────────────── */
 .header {
@@ -392,12 +389,12 @@ html, body {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 0.5px solid var(--border);
-  border-radius: 28px;
+  border-radius: var(--radius);
   padding: 8px;
   pointer-events: auto;
   box-shadow: rgba(255,255,255,0.04) 0px 1px 0px 0px inset, rgba(0,0,0,0.45) 0px -8px 32px 0px;
   position: absolute;
-  bottom: calc(20px + env(safe-area-inset-bottom));
+  bottom: calc(10px + env(safe-area-inset-bottom));
   left: 20px;
   right: 20px;
 }
@@ -1842,16 +1839,19 @@ function switchView(v) {
   document.getElementById('nav-insights').classList.toggle('active', isInsights);
   if (isInsights) buildInsights();
   else            { buildWeekStrip(); buildDailyContent(); }
+  window.scrollTo(0, 0);
 }
 
 // ── MODAL ─────────────────────────────────────────────────
 function showModal() {
   document.getElementById('modal-overlay').style.display = 'block';
   document.getElementById('modal-sheet').style.display   = 'block';
+  document.body.classList.add('sheet-open');
 }
 function hideModal() {
   document.getElementById('modal-overlay').style.display = 'none';
   document.getElementById('modal-sheet').style.display   = 'none';
+  document.body.classList.remove('sheet-open');
 }
 
 // ── EXPORT ────────────────────────────────────────────────
@@ -2164,11 +2164,13 @@ function showCheckin() {
 
   document.getElementById('checkin-overlay').style.display = 'block';
   document.getElementById('checkin-sheet').style.display   = 'block';
+  document.body.classList.add('sheet-open');
 }
 
 function hideCheckin() {
   document.getElementById('checkin-overlay').style.display = 'none';
   document.getElementById('checkin-sheet').style.display   = 'none';
+  document.body.classList.remove('sheet-open');
 }
 
 function toggleCondition(idx) {
@@ -2195,9 +2197,49 @@ function saveCheckin() {
   buildDailyContent();
 }
 
+// ── SWIPE-DOWN TO DISMISS ACCOUNT SHEET ───────────────────
+function initSheetSwipe() {
+  const sheet = document.getElementById('modal-sheet');
+  const overlay = document.getElementById('modal-overlay');
+  if (!sheet) return;
+  const base = 'translateX(-50%)';
+  let startY = 0, dy = 0, dragging = false;
+
+  sheet.addEventListener('touchstart', e => {
+    startY = e.touches[0].clientY; dy = 0; dragging = true;
+    sheet.style.transition = 'none';
+  }, { passive: true });
+
+  sheet.addEventListener('touchmove', e => {
+    if (!dragging) return;
+    dy = Math.max(0, e.touches[0].clientY - startY);
+    sheet.style.transform = `${base} translateY(${dy}px)`;
+    if (overlay) overlay.style.opacity = String(1 - Math.min(dy / 400, 0.6));
+  }, { passive: true });
+
+  sheet.addEventListener('touchend', () => {
+    if (!dragging) return;
+    dragging = false;
+    sheet.style.transition = 'transform 0.25s ease';
+    if (dy > 120) {
+      sheet.style.transform = `${base} translateY(100%)`;
+      setTimeout(() => {
+        hideModal();
+        sheet.style.transition = '';
+        sheet.style.transform = base;
+        if (overlay) overlay.style.opacity = '';
+      }, 220);
+    } else {
+      sheet.style.transform = base;
+      if (overlay) overlay.style.opacity = '';
+    }
+  }, { passive: true });
+}
+
 // ── INIT ──────────────────────────────────────────────────
 load();
 initWeekSwipe();
+initSheetSwipe();
 switchView('daily');
 buildWeekStrip();
 buildDailyContent();
